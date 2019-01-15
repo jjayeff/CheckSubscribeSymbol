@@ -27,8 +27,10 @@ public:
 	vector<SIn>			m_in_file;
 	vector<string>		db_symbol_acc;
 	vector<string>		db_symbol_acc_stock;
+	int					y_code_count = 0;
 	string				front_name = "";
 	string				back_name = "";
+	string				key_back_name = "";
 	string				trading_date = "";
 	string				db_driver = "";
 	string				db_server = "";
@@ -45,7 +47,7 @@ private:
 public:
 	bool				ReadFile(string input);
 	int					FindField(string line, char* input);
-	void				GetSymbolBase(char* cmd_temp, bool check = false);
+	int				GetSymbolBase(char* cmd_temp, bool check = false);
 	bool				InsertLogs(string app, int res, string comment, string db);
 	string				GetIpByName(string hostname);
 	void				writeConfig(LPCTSTR key, string value);

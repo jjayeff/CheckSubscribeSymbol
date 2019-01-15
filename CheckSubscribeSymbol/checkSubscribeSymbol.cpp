@@ -15,32 +15,23 @@ int main()
 	LOGI << "Read file " << file;
 	// Read file .in .out get value
 	if (processor.ReadFile(out_file))
-		LOGE << "Cannot read " << out_file;
+		return 1;
 	if (processor.ReadFile(in_file))
-		LOGE << "Cannot read " << in_file;
+		return 1;
 
 	// Get symbol from database
 	char cmd_temp[1024] = { 0 };
 	// Get symbol from database acc_info
 	sprintf_s(cmd_temp,
 		"SELECT symbol FROM acc_info.dbo.security_def WHERE trading_date >= '%s'", processor.trading_date);
-	processor.GetSymbolBase(cmd_temp, 1);
+	if (processor.GetSymbolBase(cmd_temp, 1))
+		return 1;
 	sprintf_s(cmd_temp,
 		"SELECT symbol FROM acc_info_stock.dbo.security_def WHERE trading_date >= '%s'", processor.trading_date);
-	processor.GetSymbolBase(cmd_temp);
+	if (processor.GetSymbolBase(cmd_temp))
+		return 1;
 
 	processor.CheckSymbol();
-
-	string filename = "./";
-	struct stat result;
-	if (stat(filename.c_str(), &result) == 0)
-	{
-		auto mod_time = result.st_mtime;
-		struct tm lt;
-		localtime_s(&lt, &mod_time);
-		char timbuf[80];
-		strftime(timbuf, sizeof(timbuf), "%c", &lt);
-	}
 
 	return 0;
 }

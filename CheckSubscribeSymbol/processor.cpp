@@ -15,6 +15,7 @@ Processor::Processor() {
 	config.setValue("Application", "BackName", "SET_1901140211232301");
 	config.setValue("Application", "TradingDate", "2019-01-14 00:00:00.000");
 	config.setValue("Application", "LogPath", appPath);
+	config.setValue("Application", "KeyBackName", "SET_");
 
 	config.setValue("Database", "Driver", "SQL Server Native Client 11.0");
 	config.setValue("Database", "Server", "172.17.1.43");
@@ -23,6 +24,7 @@ Processor::Processor() {
 	config.setValue("Database", "Password", "P@ssw0rd");
 	config.setValue("Database", "LogName", "CheckSubscribeSymbol");
 
+	key_back_name = config.getValueString("Application", "KeyBackName");
 	writeNameFileConfig();
 	front_name = config.getValueString("Application", "FrontName");
 	back_name = config.getValueString("Application", "BackName");
@@ -64,7 +66,6 @@ bool Processor::ReadFile(string input) {
 	size_t   p = 0;
 	myfile.seekg(p);
 	if (myfile.is_open()) {
-		int y_code_count = 0;
 		while (myfile.eof() == false) {
 			getline(myfile, line);
 			if (!input.compare(input.size() - 3, 3, ".in")) {
@@ -92,15 +93,10 @@ bool Processor::ReadFile(string input) {
 			}
 			p = myfile.tellg();  //*2
 		}
-		if (y_code_count > 0) {
-			LOGW << "Y= " << y_code_count;
-			string log = "File .in have 35=Y (" + to_string(y_code_count) + ")";
-			InsertLogs(db_logname, 0, log, "acc_info");
-			InsertLogs(db_logname, 0, log, "acc_info_stock");
-		}
 		return 0;
 	}
 	else {
+		LOGE << "Cannot read " << input;
 		return 1;
 	}
 }
@@ -118,28 +114,33 @@ int Processor::FindField(string line, char* input) {
 //+------------------------------------------------------------------+
 //| Database Function                                                |
 //+------------------------------------------------------------------+
-void Processor::GetSymbolBase(char* cmd_temp, bool check) {
-	if (!dbs.isConnected())
-	{
+int Processor::GetSymbolBase(char* cmd_temp, bool check) {
+	if (!dbs.isConnected()) {
 		LOGE << "Database disconnect! Try reconnect!";
 		dbs.connect();
+		return 1;
 	}
 
-	if (!dbs.execute(cmd_temp))
-	{
+	if (!dbs.execute(cmd_temp)) {
 		LOGE << "!Excute database fail";
+		return 1;
 	}
 
 	data = dbs.getSQLData();
 
-	while (data.FetchNext())
-	{
+	if (data.Size() < 1) {
+		LOGE << "!Not have data from database";
+		return 1;
+	}
+	while (data.FetchNext()) {
 		string tmp = data.GetField("symbol");
 		if (check)
 			db_symbol_acc.push_back(tmp);
 		else
 			db_symbol_acc_stock.push_back(tmp);
 	}
+
+	return 0;
 }
 bool Processor::InsertLogs(string app, int res, string comment, string db) {
 	if (!dbs.isConnected())
@@ -169,14 +170,14 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 		//cout << endl << input[i] << ":";
 		for (int j = 0; j < m_out_file.size(); j++) {
 			if (input[i] == m_out_file[j].symbol && m_out_file[j].check) {
-				//cout << m_out_file[j].symbol;
+			//	cout << m_out_file[j].symbol;
 				count++;
 				break;
 			}
 		}
 	}
 	// Insert log to database
-	string log, db;
+	string log = "", db;
 	if (check) {
 		LOGI << "acc_info: " << count << "/" << input.size();
 		db = "acc_info";
@@ -185,15 +186,19 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 		LOGI << "acc_info_stock: " << count << "/" << input.size();
 		db = "acc_info_stock";
 	}
-	if (input.size() == count && input.size() && count) {
-		log += "Request symbol complete (" + to_string(count) + "/" + to_string(input.size()) + ")";
-		InsertLogs(db_logname, 1, log, db);
-	}
-	else {
-		log += "Request symbol fail (" + to_string(count) + "/" + to_string(input.size()) + ")";
-		InsertLogs(db_logname, 0, log, db);
-	}
-
+	if (input.size() > 0)
+		if (y_code_count > 0) {
+			LOGW << "Y= " << y_code_count;
+			log += "File .in have 35=Y (" + to_string(y_code_count) + ")";
+		}
+		if (input.size() == count && input.size() && count) {
+			log += "Request symbol complete (" + to_string(count) + "/" + to_string(input.size()) + ")";
+			InsertLogs(db_logname, 1, log, db);
+		}
+		else {
+			log += "Request symbol fail (" + to_string(count) + "/" + to_string(input.size()) + ")";
+			InsertLogs(db_logname, 0, log, db);
+		}
 }
 int Processor::CheckSymbol() {
 	LOGI << ".in: (" << m_in_file.size() << ") | .out: (" << m_out_file.size() << ")";
@@ -269,17 +274,19 @@ void Processor::writeNameFileConfig() {
 	string path = "./";
 	string real_path = path;
 	string max = "";
+	char *cstr = new char[key_back_name.length()];
+	strcpy(cstr, key_back_name.c_str());
 	for (const auto & entry : fs::directory_iterator(path)) {
 		std::ostringstream oss;
 		oss << entry;
 		std::string path = oss.str();
-		if ((path.substr(path.size() - 3, 3) == ".in" || path.substr(path.size() - 4, 4) == ".out") && FindField(path, "SET_") > -1) {
-			if (max < path.substr(FindField(path, "SET_") + 4, 16)) {
-				max = path.substr(FindField(path, "SET_") + 4, 16);
+		if ((path.substr(path.size() - 3, 3) == ".in" || path.substr(path.size() - 4, 4) == ".out") && FindField(path, cstr) > -1) {
+			if (max < path.substr(FindField(path, cstr) + 4, 16)) {
+				max = path.substr(FindField(path, cstr) + 4, 16);
 				real_path = path;
 			}
 		}
 	}
-	writeConfig("FrontName", real_path.substr(2, FindField(real_path, "SET_") - 3));
-	writeConfig("BackName", real_path.substr(FindField(real_path, "SET_"), 20));
+	writeConfig("FrontName", real_path.substr(2, FindField(real_path, cstr) - 3));
+	writeConfig("BackName", real_path.substr(FindField(real_path, cstr), 20));
 }
