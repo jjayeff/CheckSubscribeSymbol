@@ -82,12 +82,12 @@ int Processor::ReadFile(string input) {
 			else {
 				// Push MsgType to array
 				if (FindField(line, "35=V") > -1 && FindField(line, "55=[N/A]") < 0 && FindField(line, "269=2") > -1) {
-					int x = FindField(line, "55=");
-					int y = FindField(line, "48=") - 4;
+					int symbol_index = FindField(line, "55=");
+					int symbol_index_last = FindField(line, "48=") - 4;
 					SOut tmp;
 					tmp.msg_type = line.substr(FindField(line, "35=V") + 3, 1);
 					tmp.md_req_id = line.substr(FindField(line, "262=") + 4, 18);
-					tmp.symbol = line.substr(x + 3, y - x);
+					tmp.symbol = line.substr(symbol_index + 3, symbol_index_last - symbol_index);
 					m_out_file.push_back(tmp);
 				}
 			}
@@ -195,7 +195,7 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 			}
 		}
 	}
-	
+
 	// Insert log to database
 	string log = "", db;
 	if (check) {
@@ -247,15 +247,17 @@ int Processor::CheckSymbol() {
 				msg_type_v++;
 			}
 
+	// Set count of X and Y
 	for (int i = 0; i < m_all_file.size(); i++)
 		if (m_all_file[i].msg_type == "X")
 			msg_type_x++;
 		else if (m_all_file[i].msg_type == "Y")
 			msg_type_y++;
-	
-	LOGI << "X: " << msg_type_x << ", Y: " << msg_type_y << ", Not Response: " << msg_type_v;
 
-	LOGW << "Y= " << msg_type_y;
+	// 
+	LOGI << "X: " << msg_type_x << ", Y: " << msg_type_y << ", Not Response: " << msg_type_v;
+	if (msg_type_y > 0)
+		LOGW << "Y = " << msg_type_y;
 	for (int i = 0; i < m_all_file.size(); i++)
 		if (m_all_file[i].msg_type == "Y")
 			LOGW << "(Y) symbol: " << m_all_file[i].symbol;

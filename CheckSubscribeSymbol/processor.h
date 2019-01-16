@@ -49,8 +49,8 @@ public:
 	string				db_password = "";
 	string				db_logname = "";
 
-	DBAPI		dbs;
-	SQLDATA		data;
+	DBAPI				dbs;
+	SQLDATA				data;
 
 private:
 
