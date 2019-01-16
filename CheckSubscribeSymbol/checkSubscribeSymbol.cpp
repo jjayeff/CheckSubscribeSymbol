@@ -8,11 +8,18 @@ Processor processor;
 
 int main()
 {
+	// Run Program;
+	if (processor.Run())
+		return 1;
+
 	string file = processor.front_name + "-" + processor.back_name;
 	string in_file = file + ".in";
 	string out_file = file + ".out";
 
 	LOGI << "Read file " << file;
+	// Connecting Database
+	if (processor.ConnectDataBase())
+		return 1;
 	// Read file .in .out get value
 	if (processor.ReadFile(out_file))
 		return 1;

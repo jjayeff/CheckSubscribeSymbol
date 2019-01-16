@@ -15,7 +15,8 @@ Processor::Processor() {
 	config.setValue("Application", "BackName", "SET_1901140211232301");
 	config.setValue("Application", "TradingDate", "2019-01-14 00:00:00.000");
 	config.setValue("Application", "LogPath", appPath);
-	config.setValue("Application", "KeyBackName", "SET_");
+	config.setValue("Application", "KeyFrontName", "D0118__FIX__MD1");
+	config.setValue("Application", "KeyBackName", "SET");
 
 	config.setValue("Database", "Driver", "SQL Server Native Client 11.0");
 	config.setValue("Database", "Server", "172.17.1.43");
@@ -24,13 +25,8 @@ Processor::Processor() {
 	config.setValue("Database", "Password", "P@ssw0rd");
 	config.setValue("Database", "LogName", "CheckSubscribeSymbol");
 
+	key_front_name = config.getValueString("Application", "KeyFrontName");
 	key_back_name = config.getValueString("Application", "KeyBackName");
-	writeNameFileConfig();
-	front_name = config.getValueString("Application", "FrontName");
-	back_name = config.getValueString("Application", "BackName");
-	string date = "20" + back_name.substr(4, 2) + "-" + back_name.substr(6, 2) + "-" + back_name.substr(8, 2) + " 00:00:00.000";
-	writeConfig("TradingDate", date);
-	trading_date = date;
 
 	db_driver = config.getValueString("Database", "Driver");
 	db_server = GetIpByName(config.getValueString("Database", "Server"));
@@ -40,17 +36,6 @@ Processor::Processor() {
 	db_logname = config.getValueString("Database", "LogName");
 
 	vnLog.InitialLog(config.getValueString("Application", "LogPath"), "CheckSubscribeSymbol", 10, true);
-
-	// Connect Datebase
-	if (!dbs.connect(db_driver, db_server, db_user, db_password))
-	{
-		cout << "!Database connect fail" << endl;
-		dbs.commit();
-	}
-	else
-	{
-		cout << "Database connected : " << db_server << ", Driver : " << db_driver << endl;
-	}
 }
 //+------------------------------------------------------------------+
 //| Destructor                                                       |
@@ -58,9 +43,26 @@ Processor::Processor() {
 Processor::~Processor() {
 }
 //+------------------------------------------------------------------+
+//| Run Program                                                      |
+//+------------------------------------------------------------------+
+int Processor::Run() {
+	if (SetFrontBackName())
+		return 1;
+	else {
+		front_name = config.getValueString("Application", "FrontName");
+		back_name = config.getValueString("Application", "BackName");
+		time_t t = time(0);   // get time now
+		tm* now = localtime(&t);
+		string date = to_string(now->tm_year + 1900) + "-" + to_string(now->tm_mon + 1) + "-" + to_string(now->tm_mday) +  " 00:00:00.000";
+		writeConfig("TradingDate", date);
+		trading_date = date;
+		return 0;
+	}
+}
+//+------------------------------------------------------------------+
 //| Read File                                                        |
 //+------------------------------------------------------------------+
-bool Processor::ReadFile(string input) {
+int Processor::ReadFile(string input) {
 	ifstream myfile(input.c_str());
 	string line;
 	size_t   p = 0;
@@ -114,6 +116,20 @@ int Processor::FindField(string line, char* input) {
 //+------------------------------------------------------------------+
 //| Database Function                                                |
 //+------------------------------------------------------------------+
+int Processor::ConnectDataBase() {
+	// Connect Datebase
+	if (!dbs.connect(db_driver, db_server, db_user, db_password))
+	{
+		LOGE << "!Database connect fail";
+		dbs.commit();
+		return 1;
+	}
+	else
+	{
+		LOGI << "Database connected : " << db_server << ", Driver : " << db_driver;
+		return 0;
+	}
+}
 int Processor::GetSymbolBase(char* cmd_temp, bool check) {
 	if (!dbs.isConnected()) {
 		LOGE << "Database disconnect! Try reconnect!";
@@ -122,7 +138,7 @@ int Processor::GetSymbolBase(char* cmd_temp, bool check) {
 	}
 
 	if (!dbs.execute(cmd_temp)) {
-		LOGE << "!Excute database fail";
+		LOGE << "!Execute database fail";
 		return 1;
 	}
 
@@ -140,9 +156,14 @@ int Processor::GetSymbolBase(char* cmd_temp, bool check) {
 			db_symbol_acc_stock.push_back(tmp);
 	}
 
-	return 0;
+	if (data.Size() > 0)
+		return 0;
+	else {
+		LOGE << "Database not have data from (" << trading_date << ")";
+		return 1;
+	}
 }
-bool Processor::InsertLogs(string app, int res, string comment, string db) {
+int Processor::InsertLogs(string app, int res, string comment, string db) {
 	if (!dbs.isConnected())
 	{
 		cout << "Database disconnect! Try reconnect!" << endl;
@@ -155,11 +176,11 @@ bool Processor::InsertLogs(string app, int res, string comment, string db) {
 	if (!dbs.execute(cmd_temp))
 	{
 		LOGE << "!Excute database fail";
-		return false;
+		return 0;
 	}
 
 	LOGI << "InsertLog Success!!";
-	return true;
+	return 1;
 }
 //+------------------------------------------------------------------+
 //| Check Symbol Function                                            |
@@ -170,7 +191,7 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 		//cout << endl << input[i] << ":";
 		for (int j = 0; j < m_out_file.size(); j++) {
 			if (input[i] == m_out_file[j].symbol && m_out_file[j].check) {
-			//	cout << m_out_file[j].symbol;
+				//	cout << m_out_file[j].symbol;
 				count++;
 				break;
 			}
@@ -191,14 +212,14 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 			LOGW << "Y= " << y_code_count;
 			log += "File .in have 35=Y (" + to_string(y_code_count) + ")";
 		}
-		if (input.size() == count && input.size() && count) {
-			log += "Request symbol complete (" + to_string(count) + "/" + to_string(input.size()) + ")";
-			InsertLogs(db_logname, 1, log, db);
-		}
-		else {
-			log += "Request symbol fail (" + to_string(count) + "/" + to_string(input.size()) + ")";
-			InsertLogs(db_logname, 0, log, db);
-		}
+	if (input.size() == count && input.size() && count) {
+		log += "Request symbol complete (" + to_string(count) + "/" + to_string(input.size()) + ")";
+		InsertLogs(db_logname, 1, log, db);
+	}
+	else {
+		log += "Request symbol fail (" + to_string(count) + "/" + to_string(input.size()) + ")";
+		InsertLogs(db_logname, 0, log, db);
+	}
 }
 int Processor::CheckSymbol() {
 	LOGI << ".in: (" << m_in_file.size() << ") | .out: (" << m_out_file.size() << ")";
@@ -270,23 +291,48 @@ void Processor::writeConfig(LPCTSTR key, string value) {
 	LPCTSTR path = ".\\CheckSubscribeSymbol.ini";
 	WritePrivateProfileString(_T("Application"), key, result, path);
 }
-void Processor::writeNameFileConfig() {
+int Processor::SetFrontBackName() {
 	string path = "./";
 	string real_path = path;
 	string max = "";
-	char *cstr = new char[key_back_name.length()];
-	strcpy(cstr, key_back_name.c_str());
+
+	char *cstr_front_name = new char[key_front_name.length()];
+	strcpy(cstr_front_name, key_front_name.c_str());
+	char *cstr_back_name = new char[key_back_name.length()];
+	strcpy(cstr_back_name, key_back_name.c_str());
 	for (const auto & entry : fs::directory_iterator(path)) {
-		std::ostringstream oss;
+		ostringstream oss;
 		oss << entry;
-		std::string path = oss.str();
-		if ((path.substr(path.size() - 3, 3) == ".in" || path.substr(path.size() - 4, 4) == ".out") && FindField(path, cstr) > -1) {
-			if (max < path.substr(FindField(path, cstr) + 4, 16)) {
-				max = path.substr(FindField(path, cstr) + 4, 16);
-				real_path = path;
+		string path = oss.str();
+		int index_front = FindField(path, cstr_front_name);
+		int index_back = FindField(path, cstr_back_name);
+		if ((path.substr(path.size() - 3, 3) == ".in" || path.substr(path.size() - 4, 4) == ".out")
+			&& FindField(path, cstr_front_name) > -1
+			&& processor.FindField(path, cstr_back_name) > -1
+			&& (path.substr(path.size() - 7, 7) != ".ndx.in" && path.substr(path.size() - 8, 8) != ".ndx.out")
+			) {
+			if (path.substr(path.size() - 3, 3) == ".in") {
+				if (max < path.substr(index_back + key_back_name.length() + 1, path.size() - index_back - 7)) {
+					max = path.substr(index_back + key_back_name.length() + 1, path.size() - index_back - 7);
+					real_path = path.substr(2, path.size() - 5);
+				}
 			}
+			else
+				if (path.substr(index_back + key_back_name.length() + 1, path.size() - index_back - 8) > max) {
+					max = path.substr(index_back + key_back_name.length() + 1, path.size() - index_back - 8);
+					real_path = path.substr(2, path.size() - 6);
+				}
 		}
 	}
-	writeConfig("FrontName", real_path.substr(2, FindField(real_path, cstr) - 3));
-	writeConfig("BackName", real_path.substr(FindField(real_path, cstr), 20));
+
+	if(real_path == "./") {
+		LOGE << "Cannot find file please set key front and back name";
+		return 1;
+	}
+
+	int index_front = FindField(real_path, cstr_front_name);
+	int index_back = FindField(real_path, cstr_back_name);
+	writeConfig("FrontName", real_path.substr(index_front, index_back - 1));
+	writeConfig("BackName", real_path.substr(index_back, real_path.size()));
+	return 0;
 }

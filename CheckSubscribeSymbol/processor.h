@@ -30,6 +30,7 @@ public:
 	int					y_code_count = 0;
 	string				front_name = "";
 	string				back_name = "";
+	string				key_front_name = "";
 	string				key_back_name = "";
 	string				trading_date = "";
 	string				db_driver = "";
@@ -45,15 +46,17 @@ public:
 private:
 
 public:
-	bool				ReadFile(string input);
+	int					Run();
+	int					ReadFile(string input);
 	int					FindField(string line, char* input);
-	int				GetSymbolBase(char* cmd_temp, bool check = false);
-	bool				InsertLogs(string app, int res, string comment, string db);
+	int					ConnectDataBase();
+	int					GetSymbolBase(char* cmd_temp, bool check = false);
+	int					InsertLogs(string app, int res, string comment, string db);
 	string				GetIpByName(string hostname);
 	void				writeConfig(LPCTSTR key, string value);
 	void				CheckSymbolByDB(vector<string> input, bool check = false);
 	int					CheckSymbol();
-	void				writeNameFileConfig();
+	int					SetFrontBackName();
 
 private:
 };
