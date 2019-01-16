@@ -53,7 +53,7 @@ int Processor::Run() {
 		back_name = config.getValueString("Application", "BackName");
 		time_t t = time(0);   // get time now
 		tm* now = localtime(&t);
-		string date = to_string(now->tm_year + 1900) + "-" + to_string(now->tm_mon + 1) + "-" + to_string(now->tm_mday) +  " 00:00:00.000";
+		string date = to_string(now->tm_year + 1900) + "-" + to_string(now->tm_mon + 1) + "-" + to_string(now->tm_mday) + " 00:00:00.000";
 		writeConfig("TradingDate", date);
 		trading_date = date;
 		return 0;
@@ -72,14 +72,12 @@ int Processor::ReadFile(string input) {
 			getline(myfile, line);
 			if (!input.compare(input.size() - 3, 3, ".in")) {
 				// Push MsgType to array
-				if (FindField(line, "35=X") > -1) {
+				if (FindField(line, "35=X") > -1 || FindField(line, "35=Y") > -1) {
 					SIn tmp;
 					tmp.msg_type = line.substr(FindField(line, "35=") + 3, 1);
 					tmp.security_res_id = line.substr(FindField(line, "262=") + 4, 18);
 					m_in_file.push_back(tmp);
 				}
-				else if (FindField(line, "35=Y") > -1)
-					y_code_count++;
 			}
 			else {
 				// Push MsgType to array
@@ -189,14 +187,15 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 	int count = 0;
 	for (int i = 0; i < input.size(); i++) {
 		//cout << endl << input[i] << ":";
-		for (int j = 0; j < m_out_file.size(); j++) {
-			if (input[i] == m_out_file[j].symbol && m_out_file[j].check) {
-				//	cout << m_out_file[j].symbol;
+		for (int j = 0; j < m_all_file.size(); j++) {
+			if (input[i] == m_all_file[j].symbol && m_all_file[j].msg_type == "X") {
+				//cout << m_out_file[j].symbol;
 				count++;
 				break;
 			}
 		}
 	}
+	
 	// Insert log to database
 	string log = "", db;
 	if (check) {
@@ -207,12 +206,11 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 		LOGI << "acc_info_stock: " << count << "/" << input.size();
 		db = "acc_info_stock";
 	}
-	if (input.size() > 0)
-		if (y_code_count > 0) {
-			LOGW << "Y= " << y_code_count;
-			log += "File .in have 35=Y (" + to_string(y_code_count) + ")";
-		}
-	if (input.size() == count && input.size() && count) {
+	if (msg_type_y > 0) {
+		log += "File .in have 35=Y (" + to_string(msg_type_y) + ")";
+	}
+
+	if (input.size() == count && input.size() && msg_type_y == 0) {
 		log += "Request symbol complete (" + to_string(count) + "/" + to_string(input.size()) + ")";
 		InsertLogs(db_logname, 1, log, db);
 	}
@@ -223,13 +221,44 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 }
 int Processor::CheckSymbol() {
 	LOGI << ".in: (" << m_in_file.size() << ") | .out: (" << m_out_file.size() << ")";
+	// Make m_all_file 
 	for (int i = 0; i < m_out_file.size(); i++) {
 		for (int j = 0; j < m_in_file.size(); j++) {
 			if (m_out_file[i].md_req_id == m_in_file[j].security_res_id) {
-				m_out_file[i].check = true;
+				m_out_file[i].msg_type = m_in_file[j].msg_type;
+				SAll tmp;
+				tmp.msg_type = m_in_file[j].msg_type;
+				tmp.md_req_id = m_out_file[i].md_req_id;
+				tmp.security_res_id = m_in_file[j].security_res_id;
+				tmp.symbol = m_out_file[i].symbol;
+				m_all_file.push_back(tmp);
+				break;
 			}
 		}
 	}
+
+	// Check not Response
+	for (int i = 0; i < m_out_file.size(); i++)
+		for (int j = 0; j < m_all_file.size(); j++)
+			if (m_out_file[i].md_req_id == m_all_file[j].md_req_id) {
+				break;
+			}
+			else if (j + 1 == m_all_file.size()) {
+				msg_type_v++;
+			}
+
+	for (int i = 0; i < m_all_file.size(); i++)
+		if (m_all_file[i].msg_type == "X")
+			msg_type_x++;
+		else if (m_all_file[i].msg_type == "Y")
+			msg_type_y++;
+	
+	LOGI << "X: " << msg_type_x << ", Y: " << msg_type_y << ", Not Response: " << msg_type_v;
+
+	LOGW << "Y= " << msg_type_y;
+	for (int i = 0; i < m_all_file.size(); i++)
+		if (m_all_file[i].msg_type == "Y")
+			LOGW << "(Y) symbol: " << m_all_file[i].symbol;
 
 	CheckSymbolByDB(db_symbol_acc, 1);
 	CheckSymbolByDB(db_symbol_acc_stock);
@@ -325,7 +354,7 @@ int Processor::SetFrontBackName() {
 		}
 	}
 
-	if(real_path == "./") {
+	if (real_path == "./") {
 		LOGE << "Cannot find file please set key front and back name";
 		return 1;
 	}

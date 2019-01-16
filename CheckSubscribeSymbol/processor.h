@@ -15,19 +15,28 @@ public:
 		string				msg_type = "";					// MsgType 
 		string				md_req_id = "";					// MDReqID
 		string				symbol = "";					// Symbol
-		bool				check = false;					// Check
 	};
 	struct SIn
 	{
 		string				msg_type = "";					// MsgType 
 		string				security_res_id = "";			// SecurityResponseID
 	};
+	struct SAll
+	{
+		string				msg_type = "";					// MsgType 
+		string				md_req_id = "";					// MDReqID
+		string				security_res_id = "";			// SecurityResponseID
+		string				symbol = "";					// Symbol
+	};
 
 	vector<SOut>		m_out_file;
 	vector<SIn>			m_in_file;
+	vector<SAll>		m_all_file;
 	vector<string>		db_symbol_acc;
 	vector<string>		db_symbol_acc_stock;
-	int					y_code_count = 0;
+	int					msg_type_x = 0;
+	int					msg_type_y = 0;
+	int					msg_type_v = 0;
 	string				front_name = "";
 	string				back_name = "";
 	string				key_front_name = "";

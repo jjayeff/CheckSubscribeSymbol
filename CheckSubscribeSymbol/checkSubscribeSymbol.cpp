@@ -17,13 +17,13 @@ int main()
 	string out_file = file + ".out";
 
 	LOGI << "Read file " << file;
-	// Connecting Database
-	if (processor.ConnectDataBase())
-		return 1;
 	// Read file .in .out get value
 	if (processor.ReadFile(out_file))
 		return 1;
 	if (processor.ReadFile(in_file))
+		return 1;
+	// Connecting Database
+	if (processor.ConnectDataBase())
 		return 1;
 
 	// Get symbol from database
