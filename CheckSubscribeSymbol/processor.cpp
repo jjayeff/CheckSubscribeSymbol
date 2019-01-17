@@ -164,7 +164,7 @@ int Processor::GetSymbolBase(char* cmd_temp, bool check) {
 int Processor::InsertLogs(string app, int res, string comment, string db) {
 	if (!dbs.isConnected())
 	{
-		cout << "Database disconnect! Try reconnect!" << endl;
+		LOGE << "Database disconnect! Try reconnect!";
 		dbs.connect();
 	}
 
@@ -185,6 +185,8 @@ int Processor::InsertLogs(string app, int res, string comment, string db) {
 //+------------------------------------------------------------------+
 void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 	int count = 0;
+	int non_res = 0;
+	int non_req = 0;
 	for (int i = 0; i < input.size(); i++) {
 		//cout << endl << input[i] << ":";
 		for (int j = 0; j < m_all_file.size(); j++) {
@@ -193,11 +195,20 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 				count++;
 				break;
 			}
+			else if (input[i] == m_all_file[j].symbol && m_all_file[j].msg_type == "V") {
+				non_res++;
+				break;
+			}
+			else if (j + 1 == m_all_file.size()) {
+				non_req++;
+			}
 		}
 	}
 
 	// Insert log to database
 	string log = "", db;
+	LOGI << "Done: " << count << ", Y: " << msg_type_y << ", nonRes: " << non_res << ", nonReq: " << non_req - msg_type_y;
+
 	if (check) {
 		LOGI << "acc_info: " << count << "/" << input.size();
 		db = "acc_info";
@@ -234,6 +245,14 @@ int Processor::CheckSymbol() {
 				m_all_file.push_back(tmp);
 				break;
 			}
+			else if (j + 1 == m_in_file.size()) {
+				SAll tmp;
+				tmp.msg_type = "V";
+				tmp.md_req_id = m_out_file[i].md_req_id;
+				tmp.security_res_id = m_out_file[i].md_req_id;
+				tmp.symbol = m_out_file[i].symbol;
+				m_all_file.push_back(tmp);
+			}
 		}
 	}
 
@@ -246,6 +265,37 @@ int Processor::CheckSymbol() {
 			else if (j + 1 == m_all_file.size()) {
 				msg_type_v++;
 			}
+
+	// Make file test !!
+	/*ofstream myfile("example.in");
+	if (myfile.is_open())
+	{
+		ifstream xx(front_name + "-" + back_name + ".in");
+		string line;
+		size_t   p = 0;
+		xx.seekg(p);
+		if (xx.is_open())
+			while (xx.eof() == false) {
+				getline(xx, line);
+				myfile << line;
+				myfile << "\n";
+			}
+		// Check not Response
+		for (int i = 0; i < m_out_file.size(); i++)
+			for (int j = 0; j < m_all_file.size(); j++)
+				if (m_out_file[i].md_req_id == m_all_file[j].md_req_id) {
+					break;
+				}
+				else if (j + 1 == m_all_file.size()) {
+					myfile << "35=X";
+					myfile << "262=";
+					myfile << m_out_file[i].md_req_id;
+					myfile << "\n";
+					msg_type_v++;
+				}
+		myfile.close();
+	}
+	else cout << "Unable to open file";*/
 
 	// Set count of X and Y
 	for (int i = 0; i < m_all_file.size(); i++)
