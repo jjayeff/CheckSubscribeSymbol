@@ -12,7 +12,8 @@ int main()
 	if (processor.Run())
 		return 1;
 
-	string file = processor.front_name + "-" + processor.back_name;
+	string file = processor.file_path + processor.front_name + "-" + processor.back_name;
+
 	string in_file = file + ".in";
 	string out_file = file + ".out";
 

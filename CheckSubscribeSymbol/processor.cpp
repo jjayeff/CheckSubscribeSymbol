@@ -9,7 +9,7 @@ Processor::Processor() {
 	// Setting configuration
 	config.setConfig("CheckSubscribeSymbol.ini");
 
-	string appPath = config.getAbsolutePath();
+	string appPath = config.getAbsolutePath() + "logs";
 
 	config.setValue("Application", "FrontName", "D0118__FIX__MD1");
 	config.setValue("Application", "BackName", "SET_1901140211232301");
@@ -17,7 +17,7 @@ Processor::Processor() {
 	config.setValue("Application", "LogPath", appPath);
 	config.setValue("Application", "KeyFrontName", "D0118__FIX__MD1");
 	config.setValue("Application", "KeyBackName", "SET");
-	config.setValue("Application", "FilePath", "./");
+	config.setValue("Application", "FilePath", appPath);
 
 	config.setValue("Database", "Driver", "SQL Server Native Client 11.0");
 	config.setValue("Database", "Server", "172.17.1.43");
@@ -211,23 +211,23 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 	LOGI << "Done: " << count << ", Y: " << msg_type_y << ", nonRes: " << non_res << ", nonReq: " << non_req - msg_type_y;
 
 	if (check) {
-		LOGI << "acc_info: " << count + non_res << "/" << input.size();
 		db = "acc_info";
 	}
 	else {
-		LOGI << "acc_info_stock: " << count + non_res << "/" << input.size();
 		db = "acc_info_stock";
 	}
-	if (msg_type_y > 0) {
-		log += "File .in have 35=Y (" + to_string(msg_type_y) + ")";
-	}
 
-	if (input.size() == count && input.size() && msg_type_y == 0) {
-		log += "Request symbol complete (" + to_string(count) + "/" + to_string(input.size()) + ")";
+	if (input.size() == count + non_res && input.size()) {
+		LOGI << db << ": " << count + non_res << "/" << input.size();
+		log += "Request symbol complete (" + to_string(count + non_res) + "/" + to_string(input.size()) + ")";
 		InsertLogs(db_logname, 1, log, db);
 	}
 	else {
-		log += "Request symbol fail (" + to_string(count) + "/" + to_string(input.size()) + ")";
+		if (msg_type_y > 0) {
+			log += "File .in have 35=Y (" + to_string(msg_type_y) + ")";
+		}
+		LOGI << db << ": " << count + non_res << "/" << input.size();
+		log += "Request symbol fail (" + to_string(count + non_res) + "/" + to_string(input.size()) + ")";
 		InsertLogs(db_logname, 0, log, db);
 	}
 }
@@ -402,13 +402,13 @@ int Processor::SetFrontBackName() {
 			if (path.substr(path.size() - 3, 3) == ".in") {
 				if (max < path.substr(index_back + key_back_name.length() + 1, path.size() - index_back - 7)) {
 					max = path.substr(index_back + key_back_name.length() + 1, path.size() - index_back - 7);
-					real_path = path.substr(2, path.size() - 5);
+					real_path = path.substr(0, path.size() - 3);
 				}
 			}
 			else
 				if (path.substr(index_back + key_back_name.length() + 1, path.size() - index_back - 8) > max) {
 					max = path.substr(index_back + key_back_name.length() + 1, path.size() - index_back - 8);
-					real_path = path.substr(2, path.size() - 6);
+					real_path = path.substr(0, path.size() - 4);
 				}
 		}
 	}
@@ -420,7 +420,7 @@ int Processor::SetFrontBackName() {
 
 	int index_front = FindField(real_path, cstr_front_name);
 	int index_back = FindField(real_path, cstr_back_name);
-	writeConfig(".\\CheckSubscribeSymbol.ini", "FrontName", real_path.substr(index_front, index_back - 1));
+	writeConfig(".\\CheckSubscribeSymbol.ini", "FrontName", real_path.substr(index_front, index_back - index_front - 1));
 	writeConfig(".\\CheckSubscribeSymbol.ini", "BackName", real_path.substr(index_back, real_path.size()));
 	return 0;
 }
