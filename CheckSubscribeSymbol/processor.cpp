@@ -64,7 +64,8 @@ int Processor::Run() {
 //| Read File                                                        |
 //+------------------------------------------------------------------+
 int Processor::ReadFile(string input) {
-	ifstream myfile(input.c_str());
+	fstream myfile;
+	myfile.open(input.c_str(), fstream::in);
 	string line;
 	size_t   p = 0;
 	myfile.seekg(p);
