@@ -17,6 +17,7 @@ Processor::Processor() {
 	config.setValue("Application", "LogPath", appPath);
 	config.setValue("Application", "KeyFrontName", "D0118__FIX__MD1");
 	config.setValue("Application", "KeyBackName", "SET");
+	config.setValue("Application", "FilePath", "./");
 
 	config.setValue("Database", "Driver", "SQL Server Native Client 11.0");
 	config.setValue("Database", "Server", "172.17.1.43");
@@ -27,7 +28,7 @@ Processor::Processor() {
 
 	key_front_name = config.getValueString("Application", "KeyFrontName");
 	key_back_name = config.getValueString("Application", "KeyBackName");
-
+	file_path = config.getValueString("Application", "FilePath");
 	db_driver = config.getValueString("Database", "Driver");
 	db_server = GetIpByName(config.getValueString("Database", "Server"));
 	db_database = config.getValueString("Database", "Database");
@@ -54,7 +55,7 @@ int Processor::Run() {
 		time_t t = time(0);   // get time now
 		tm* now = localtime(&t);
 		string date = to_string(now->tm_year + 1900) + "-" + to_string(now->tm_mon + 1) + "-" + to_string(now->tm_mday) + " 00:00:00.000";
-		writeConfig("TradingDate", date);
+		writeConfig(".\\CheckSubscribeSymbol.ini", "TradingDate", date);
 		trading_date = date;
 		return 0;
 	}
@@ -210,11 +211,11 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 	LOGI << "Done: " << count << ", Y: " << msg_type_y << ", nonRes: " << non_res << ", nonReq: " << non_req - msg_type_y;
 
 	if (check) {
-		LOGI << "acc_info: " << count << "/" << input.size();
+		LOGI << "acc_info: " << count + non_res << "/" << input.size();
 		db = "acc_info";
 	}
 	else {
-		LOGI << "acc_info_stock: " << count << "/" << input.size();
+		LOGI << "acc_info_stock: " << count + non_res << "/" << input.size();
 		db = "acc_info_stock";
 	}
 	if (msg_type_y > 0) {
@@ -237,7 +238,7 @@ int Processor::CheckSymbol() {
 		for (int j = 0; j < m_in_file.size(); j++) {
 			if (m_out_file[i].md_req_id == m_in_file[j].security_res_id) {
 				bool tmp = false;
-				for (int k = 0; k < m_all_file.size(); k++) 
+				for (int k = 0; k < m_all_file.size(); k++)
 					if (m_all_file[k].symbol == m_out_file[i].symbol) {
 						tmp = true;
 						break;
@@ -374,13 +375,12 @@ string Processor::GetIpByName(string hostname)
 	}
 	return ans;
 }
-void Processor::writeConfig(LPCTSTR key, string value) {
+void Processor::writeConfig(LPCTSTR path, LPCTSTR key, string value) {
 	LPCTSTR result = value.c_str();
-	LPCTSTR path = ".\\CheckSubscribeSymbol.ini";
 	WritePrivateProfileString(_T("Application"), key, result, path);
 }
 int Processor::SetFrontBackName() {
-	string path = "./";
+	string path = file_path;
 	string real_path = path;
 	string max = "";
 
@@ -420,7 +420,7 @@ int Processor::SetFrontBackName() {
 
 	int index_front = FindField(real_path, cstr_front_name);
 	int index_back = FindField(real_path, cstr_back_name);
-	writeConfig("FrontName", real_path.substr(index_front, index_back - 1));
-	writeConfig("BackName", real_path.substr(index_back, real_path.size()));
+	writeConfig(".\\CheckSubscribeSymbol.ini", "FrontName", real_path.substr(index_front, index_back - 1));
+	writeConfig(".\\CheckSubscribeSymbol.ini", "BackName", real_path.substr(index_back, real_path.size()));
 	return 0;
 }

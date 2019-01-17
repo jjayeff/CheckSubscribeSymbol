@@ -41,6 +41,7 @@ public:
 	string				back_name = "";
 	string				key_front_name = "";
 	string				key_back_name = "";
+	string				file_path = "";
 	string				trading_date = "";
 	string				db_driver = "";
 	string				db_server = "";
@@ -62,7 +63,7 @@ public:
 	int					GetSymbolBase(char* cmd_temp, bool check = false);
 	int					InsertLogs(string app, int res, string comment, string db);
 	string				GetIpByName(string hostname);
-	void				writeConfig(LPCTSTR key, string value);
+	void				writeConfig(LPCTSTR path, LPCTSTR key, string value);
 	void				CheckSymbolByDB(vector<string> input, bool check = false);
 	int					CheckSymbol();
 	int					SetFrontBackName();
