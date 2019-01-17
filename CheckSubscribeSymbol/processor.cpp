@@ -236,13 +236,20 @@ int Processor::CheckSymbol() {
 	for (int i = 0; i < m_out_file.size(); i++) {
 		for (int j = 0; j < m_in_file.size(); j++) {
 			if (m_out_file[i].md_req_id == m_in_file[j].security_res_id) {
-				m_out_file[i].msg_type = m_in_file[j].msg_type;
-				SAll tmp;
-				tmp.msg_type = m_in_file[j].msg_type;
-				tmp.md_req_id = m_out_file[i].md_req_id;
-				tmp.security_res_id = m_in_file[j].security_res_id;
-				tmp.symbol = m_out_file[i].symbol;
-				m_all_file.push_back(tmp);
+				bool tmp = false;
+				for (int k = 0; k < m_all_file.size(); k++) 
+					if (m_all_file[k].symbol == m_out_file[i].symbol) {
+						tmp = true;
+						break;
+					}
+				if (!tmp) {
+					SAll tmp;
+					tmp.msg_type = m_in_file[j].msg_type;
+					tmp.md_req_id = m_out_file[i].md_req_id;
+					tmp.security_res_id = m_in_file[j].security_res_id;
+					tmp.symbol = m_out_file[i].symbol;
+					m_all_file.push_back(tmp);
+				}
 				break;
 			}
 			else if (j + 1 == m_in_file.size()) {
