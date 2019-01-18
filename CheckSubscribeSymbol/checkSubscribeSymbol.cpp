@@ -6,8 +6,9 @@
 
 Processor processor;
 
-int CheckSubscribeSymbol() {
-	// Run Program;
+int CheckSubscribeSymbol(int time) {
+	processor.run_time = time;
+ 	// Run Program;
 	if (processor.Run())
 		return 1;
 
@@ -51,7 +52,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	switch (stoi(argv[1])) {
 	case 1:
-		if (CheckSubscribeSymbol())
+		if (CheckSubscribeSymbol(stoi(argv[2])))
 			return 1;
 	case 2: {
 	}

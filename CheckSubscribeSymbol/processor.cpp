@@ -227,7 +227,7 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 	if (input.size() == count + non_res && input.size()) {
 		LOGI << db << ": " << count + non_res << "/" << input.size();
 		log += "Request symbol complete (" + to_string(count + non_res) + "/" + to_string(input.size()) + ")";
-		InsertLogs(db_logname, 1, log, db);
+		InsertLogs(db_logname + " #" + to_string(run_time), 1, log, db);
 	}
 	else {
 		if (non_y > 0) {
@@ -235,7 +235,7 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 		}
 		LOGI << db << ": " << count + non_res << "/" << input.size();
 		log += "Request symbol fail (" + to_string(count + non_res) + "/" + to_string(input.size()) + ")";
-		InsertLogs(db_logname, 0, log, db);
+		InsertLogs(db_logname + " #" + to_string(run_time), 0, log, db);
 	}
 }
 int Processor::CheckSymbol() {

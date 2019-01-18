@@ -55,6 +55,7 @@ public:
 	string				db_user = "";
 	string				db_password = "";
 	string				db_logname = "";
+	int					run_time = 0;
 
 	DBAPI				dbs;
 	SQLDATA				data;
