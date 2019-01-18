@@ -28,10 +28,16 @@ public:
 		string				security_res_id = "";			// SecurityResponseID
 		string				symbol = "";					// Symbol
 	};
+	struct SChange
+	{
+		string				trade_seq_so_series = "";		// TradeSeqNoSeries
+		string				symbol = "";					// Symbol
+	};
 
 	vector<SOut>		m_out_file;
 	vector<SIn>			m_in_file;
 	vector<SAll>		m_all_file;
+	vector<SChange>		m_change_file;
 	vector<string>		db_symbol_acc;
 	vector<string>		db_symbol_acc_stock;
 	int					msg_type_x = 0;
@@ -67,6 +73,7 @@ public:
 	void				CheckSymbolByDB(vector<string> input, bool check = false);
 	int					CheckSymbol();
 	int					SetFrontBackName();
+	int					ChangeTradeSeqNoSeri(string input);
 
 private:
 };

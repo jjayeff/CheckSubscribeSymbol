@@ -54,7 +54,7 @@ int Processor::Run() {
 		back_name = config.getValueString("Application", "BackName");
 		time_t t = time(0);   // get time now
 		tm* now = localtime(&t);
-		string date = to_string(now->tm_year + 1900) + "-" + to_string(now->tm_mon + 1) + "-" + to_string(now->tm_mday) + " 00:00:00.000";
+		string date = to_string(now->tm_year + 1900) + "-" + to_string(now->tm_mon + 1) + "-" + to_string(now->tm_mday) + " 00:00:00";
 		writeConfig(".\\CheckSubscribeSymbol.ini", "TradingDate", date);
 		trading_date = date;
 		return 0;
@@ -64,12 +64,12 @@ int Processor::Run() {
 //| Read File                                                        |
 //+------------------------------------------------------------------+
 int Processor::ReadFile(string input) {
-	fstream myfile;
-	myfile.open(input.c_str(), fstream::in);
+	fstream myfile(input.c_str(), fstream::in);
 	string line;
 	size_t   p = 0;
 	myfile.seekg(p);
 	if (myfile.is_open()) {
+		int weqwewqeq = 0;
 		while (myfile.eof() == false) {
 			getline(myfile, line);
 			if (!input.compare(input.size() - 3, 3, ".in")) {
@@ -95,6 +95,7 @@ int Processor::ReadFile(string input) {
 			}
 			p = myfile.tellg();  //*2
 		}
+		LOGI << "ReadFile Success " << input;
 		return 0;
 	}
 	else {
@@ -131,6 +132,7 @@ int Processor::ConnectDataBase() {
 	}
 }
 int Processor::GetSymbolBase(char* cmd_temp, bool check) {
+	LOGI << "Execute: " << cmd_temp;
 	if (!dbs.isConnected()) {
 		LOGE << "Database disconnect! Try reconnect!";
 		dbs.connect();
@@ -145,8 +147,8 @@ int Processor::GetSymbolBase(char* cmd_temp, bool check) {
 	data = dbs.getSQLData();
 
 	if (data.Size() < 1) {
-		LOGE << "!Not have data from database";
-		return 1;
+		LOGW << "!Not have data from database";
+		return 0;
 	}
 	while (data.FetchNext()) {
 		string tmp = data.GetField("symbol");
@@ -156,8 +158,9 @@ int Processor::GetSymbolBase(char* cmd_temp, bool check) {
 			db_symbol_acc_stock.push_back(tmp);
 	}
 
-	if (data.Size() > 0)
+	if (data.Size() > 0) {
 		return 0;
+	}
 	else {
 		LOGE << "Database not have data from (" << trading_date << ")";
 		return 1;
@@ -187,14 +190,17 @@ int Processor::InsertLogs(string app, int res, string comment, string db) {
 //+------------------------------------------------------------------+
 void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 	int count = 0;
+	int non_y = 0;
 	int non_res = 0;
 	int non_req = 0;
 	for (int i = 0; i < input.size(); i++) {
-		//cout << endl << input[i] << ":";
 		for (int j = 0; j < m_all_file.size(); j++) {
 			if (input[i] == m_all_file[j].symbol && m_all_file[j].msg_type == "X") {
-				//cout << m_out_file[j].symbol;
 				count++;
+				break;
+			}
+			else if (input[i] == m_all_file[j].symbol && m_all_file[j].msg_type == "Y") {
+				non_y++;
 				break;
 			}
 			else if (input[i] == m_all_file[j].symbol && m_all_file[j].msg_type == "V") {
@@ -209,7 +215,7 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 
 	// Insert log to database
 	string log = "", db;
-	LOGI << "Done: " << count << ", Y: " << msg_type_y << ", nonRes: " << non_res << ", nonReq: " << non_req - msg_type_y;
+	LOGI << "Done: " << count << ", Y: " << non_y << ", nonRes: " << non_res << ", nonReq: " << non_req;
 
 	if (check) {
 		db = "acc_info";
@@ -224,8 +230,8 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 		InsertLogs(db_logname, 1, log, db);
 	}
 	else {
-		if (msg_type_y > 0) {
-			log += "File .in have 35=Y (" + to_string(msg_type_y) + ")";
+		if (non_y > 0) {
+			log += "File .in have 35=Y (" + to_string(non_y) + ")";
 		}
 		LOGI << db << ": " << count + non_res << "/" << input.size();
 		log += "Request symbol fail (" + to_string(count + non_res) + "/" + to_string(input.size()) + ")";
@@ -234,17 +240,23 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 }
 int Processor::CheckSymbol() {
 	LOGI << ".in: (" << m_in_file.size() << ") | .out: (" << m_out_file.size() << ")";
-	// Make m_all_file 
-	for (int i = 0; i < m_out_file.size(); i++) {
+
+	// Make m_all_file
+	for (int i = 0; i < m_out_file.size(); i++)
 		for (int j = 0; j < m_in_file.size(); j++) {
 			if (m_out_file[i].md_req_id == m_in_file[j].security_res_id) {
-				bool tmp = false;
+				int check = 1;
 				for (int k = 0; k < m_all_file.size(); k++)
-					if (m_all_file[k].symbol == m_out_file[i].symbol) {
-						tmp = true;
+					if (m_out_file[i].symbol == m_all_file[k].symbol && m_out_file[i].md_req_id != m_all_file[k].md_req_id) {
+						if (m_all_file[k].msg_type != "V" && m_all_file[k].msg_type != "X") {
+							m_all_file[k].msg_type = m_in_file[j].msg_type;
+							m_all_file[k].md_req_id = m_out_file[i].md_req_id;
+							m_all_file[k].security_res_id = m_in_file[j].security_res_id;
+						}
+						check = 0;
 						break;
 					}
-				if (!tmp) {
+				if (check) {
 					SAll tmp;
 					tmp.msg_type = m_in_file[j].msg_type;
 					tmp.md_req_id = m_out_file[i].md_req_id;
@@ -254,67 +266,40 @@ int Processor::CheckSymbol() {
 				}
 				break;
 			}
-			else if (j + 1 == m_in_file.size()) {
-				SAll tmp;
-				tmp.msg_type = "V";
-				tmp.md_req_id = m_out_file[i].md_req_id;
-				tmp.security_res_id = m_out_file[i].md_req_id;
-				tmp.symbol = m_out_file[i].symbol;
-				m_all_file.push_back(tmp);
+			else if ((j + 1 == m_in_file.size())) {
+				int check = 1;
+				for (int k = 0; k < m_all_file.size(); k++)
+					if (m_out_file[i].symbol == m_all_file[k].symbol && m_out_file[i].md_req_id != m_all_file[k].md_req_id) {
+						m_all_file[k].msg_type = "V";
+						m_all_file[k].md_req_id = m_out_file[i].md_req_id;
+						m_all_file[k].security_res_id = m_out_file[i].md_req_id;
+						check = 0;
+						break;
+					}
+				if (check) {
+					SAll tmp;
+					tmp.msg_type = "V";
+					tmp.md_req_id = m_out_file[i].md_req_id;
+					tmp.security_res_id = m_out_file[i].md_req_id;
+					tmp.symbol = m_out_file[i].symbol;
+					m_all_file.push_back(tmp);
+				}
 			}
 		}
-	}
 
-	// Check not Response
-	for (int i = 0; i < m_out_file.size(); i++)
-		for (int j = 0; j < m_all_file.size(); j++)
-			if (m_out_file[i].md_req_id == m_all_file[j].md_req_id) {
-				break;
-			}
-			else if (j + 1 == m_all_file.size()) {
-				msg_type_v++;
-			}
-
-	// Make file test !!
-	/*ofstream myfile("example.in");
-	if (myfile.is_open())
-	{
-		ifstream xx(front_name + "-" + back_name + ".in");
-		string line;
-		size_t   p = 0;
-		xx.seekg(p);
-		if (xx.is_open())
-			while (xx.eof() == false) {
-				getline(xx, line);
-				myfile << line;
-				myfile << "\n";
-			}
-		// Check not Response
-		for (int i = 0; i < m_out_file.size(); i++)
-			for (int j = 0; j < m_all_file.size(); j++)
-				if (m_out_file[i].md_req_id == m_all_file[j].md_req_id) {
-					break;
-				}
-				else if (j + 1 == m_all_file.size()) {
-					myfile << "35=X";
-					myfile << "262=";
-					myfile << m_out_file[i].md_req_id;
-					myfile << "\n";
-					msg_type_v++;
-				}
-		myfile.close();
-	}
-	else cout << "Unable to open file";*/
-
-	// Set count of X and Y
+	// Set count of X and Y and not Response
 	for (int i = 0; i < m_all_file.size(); i++)
 		if (m_all_file[i].msg_type == "X")
 			msg_type_x++;
 		else if (m_all_file[i].msg_type == "Y")
 			msg_type_y++;
+		else if (m_all_file[i].msg_type == "V")
+			msg_type_v++;
+
 
 	// 
 	LOGI << "X: " << msg_type_x << ", Y: " << msg_type_y << ", Not Response: " << msg_type_v;
+
 	if (msg_type_y > 0)
 		LOGW << "Y = " << msg_type_y;
 	for (int i = 0; i < m_all_file.size(); i++)
@@ -323,6 +308,79 @@ int Processor::CheckSymbol() {
 
 	CheckSymbolByDB(db_symbol_acc, 1);
 	CheckSymbolByDB(db_symbol_acc_stock);
+
+	return 0;
+}
+//+------------------------------------------------------------------+
+//| Change TradeSeqNoSeri                                            |
+//+------------------------------------------------------------------+
+int Processor::ChangeTradeSeqNoSeri(string input) {
+	for (int i = 0; i < m_all_file.size(); i++)
+		if (m_all_file[i].msg_type == "Y") {
+			std::cout << endl << m_all_file[i].symbol << " | ";
+			string y_case = "55=" + m_all_file[i].symbol;
+			char *cstr = new char[y_case.length()];
+			strcpy(cstr, y_case.c_str());
+			fstream myfile(input.c_str(), fstream::in);
+			string line;
+			size_t   p = 0;
+			myfile.seekg(p);
+			if (myfile.is_open()) {
+				while (myfile.eof() == false) {
+					getline(myfile, line);
+					if (FindField(line, "35=AA") > -1 && FindField(line, cstr) > -1 && line.substr(FindField(line, cstr) + y_case.length() + 3, 1) == "=") {
+						SChange tmp;
+						tmp.trade_seq_so_series = line.substr(FindField(line, "7555=") + 5, 3);
+						tmp.symbol = m_all_file[i].symbol;
+						m_change_file.push_back(tmp);
+					}
+					p = myfile.tellg();  //*2
+				}
+			}
+		}
+
+	vector<string> iro;
+
+	ifstream myfile("example.txt");
+	string line;
+	size_t   p = 0;
+	myfile.seekg(p);
+	if (myfile.is_open()) {
+		while (myfile.eof() == false) {
+			getline(myfile, line);
+			iro.push_back(line);
+			p = myfile.tellg();  //*2
+		}
+	}
+	ofstream mywrite("example.txt");
+
+	for (int i = 0; i < iro.size(); i++) {
+		string y_case = m_change_file[0].symbol;
+		char *cstr = new char[y_case.length()];
+		strcpy(cstr, y_case.c_str());
+		if (FindField(iro[i], cstr) > -1) {
+			int q = 0; int r = 0; int o = 0;
+			for (int j = 0; j < iro[i].length(); j++) {
+				if (j + 1 == iro[i].length())
+					std::cout << endl;
+				if (iro[i][j] == ',')
+					q++;
+				if (q == 1) {
+					r = j;
+				}
+				else if (q == 2) {
+					o = j;
+				}
+			}
+			std::cout << iro[i].substr(0, r + 2) + m_change_file[0].trade_seq_so_series + iro[i].substr(o + 1, iro[i].size()) << endl;
+			mywrite << iro[i].substr(0, r + 2) + m_change_file[0].trade_seq_so_series + iro[i].substr(o + 1, iro[i].size());
+			mywrite << "\n";
+		}
+		else {
+			mywrite << iro[i];
+			mywrite << "\n";
+		}
+	}
 
 	return 0;
 }

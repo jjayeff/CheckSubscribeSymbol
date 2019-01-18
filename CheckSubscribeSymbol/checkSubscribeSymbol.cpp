@@ -6,8 +6,7 @@
 
 Processor processor;
 
-int main()
-{
+int CheckSubscribeSymbol() {
 	// Run Program;
 	if (processor.Run())
 		return 1;
@@ -17,7 +16,6 @@ int main()
 	string in_file = file + ".in";
 	string out_file = file + ".out";
 
-	LOGI << "Read file " << file;
 	// Read file .in .out get value
 	if (processor.ReadFile(out_file))
 		return 1;
@@ -40,6 +38,24 @@ int main()
 		return 1;
 
 	processor.CheckSymbol();
+
+	return 0;
+}
+
+int _tmain(int argc, _TCHAR* argv[])
+{
+	if (argc < 2) {
+		LOGI << "Usage: " << argv[0] << " [Check = 1],[Change = 2]";
+		return 1;
+	}
+
+	switch (stoi(argv[1])) {
+	case 1:
+		if (CheckSubscribeSymbol())
+			return 1;
+	case 2: {
+	}
+	}
 
 	return 0;
 }
