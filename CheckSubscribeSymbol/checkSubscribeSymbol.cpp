@@ -40,6 +40,13 @@ int CheckSubscribeSymbol(int time) {
 	return 0;
 }
 
+int ChangeSubscribeSymbol(int time) {
+	//CheckSubscribeSymbol(time);
+	//processor.ChangeTradeSeqNoSeri();
+
+	return 0;
+}
+
 int _tmain(int argc, _TCHAR* argv[])
 {
 	if (argc < 2) {
@@ -51,8 +58,9 @@ int _tmain(int argc, _TCHAR* argv[])
 	case 1:
 		if (CheckSubscribeSymbol(stoi(argv[2])))
 			return 1;
-	case 2: {
-	}
+	case 2:
+		if (ChangeSubscribeSymbol(stoi(argv[2])))
+			return 1;
 	}
 
 	return 0;

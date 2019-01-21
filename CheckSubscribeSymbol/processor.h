@@ -38,6 +38,7 @@ public:
 	vector<SIn>			m_in_file;
 	vector<SAll>		m_all_file;
 	vector<SChange>		m_change_file;
+	vector<string>		ignore_sumbol;
 	vector<string>		db_symbol_acc;
 	vector<string>		db_symbol_acc_stock;
 	int					msg_type_x = 0;
@@ -75,6 +76,7 @@ public:
 	int					CheckSymbol();
 	int					SetFrontBackName();
 	int					ChangeTradeSeqNoSeri(string input);
+	int					CutString(string input);
 
 private:
 };

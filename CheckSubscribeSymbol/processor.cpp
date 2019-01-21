@@ -18,6 +18,8 @@ Processor::Processor() {
 	config.setValue("Application", "KeyFrontName", "D0118__FIX__MD1");
 	config.setValue("Application", "KeyBackName", "SET");
 	config.setValue("Application", "FilePath", appPath);
+	config.setValue("Application", "UnderlyingIndex", "BANK, COMM, ICT, ENERG, FOOD, SET50, SET, AGRO, CONSUMP, FINCIAL, INDUS, PROPCON, RESOURC, SERVICE, TECH, AGRI, CONMAT, PETRO, ETRON, MEDIA, FIN, HELTH, TOURISM, HOME, INSUR, MINE, PKG, PERSON, PROF, PROP, PAPER, FASHION, TRANS, AUTO, IMM, PF REIT, STEEL, SET100, SET100, SETHD, sSET, CONS, SETCLMV, SETTHSI,");
+	config.setValue("Application", "UnderlyingStock", "BDMS, ADVANC, AMATA, AP, AOT, TOP, BCH, BANPU, BAY, BBL, BH, BJC, BCP, BLAND, MINT, THCOM, CENTEL, CPF, CPN, CK, TCAP, HMPRO, ITD, IRPC, JAS, KKP, KTB, KBANK, DTAC, CPALL, LH, LPN, MAJOR, PTTEP, PTT, QH, ROBINS, RATCH, SCB, SCC, STA, SIRI, SPALI, STEC, THAI, TMB, TPIPL, TVO, TTA, TRUE, BLA, IVL, BTS, INTUCH, PTTGC, AAV, USD, BRENT, GOLD10, GOLD50, SILER, BB3, TGB5, S50IF_CONVL, TU, BA, CBG, HANA, SAMART, TTCL, EARTH, VGI, CKP, ICHI, SAWAD, BEM, RSS3, RSS3D, PSH, EPG, PLANB, GLOW, STPI, TTW, GPSC, DELTA, UNIQ, S, EGCO, KCE, KTC, TASCO, GLOBAL, GUNKUL, SPCG, WHA, BEAUTY, CHG, PTG, GOLD-D, SUPER, ESSO, SGP, COM7, JWD, GFPT, ORI, IFEC, TKN, SPRC, PSL, RS, BCPG, BIG, BPP, THANI, UV, VIBHA, WORK, TPIPP, WHAUP, GGC, JMART, ANAN, EA, MONO, MC, GOLD-O, GOLD, SILVER,");
 
 	config.setValue("Database", "Driver", "SQL Server Native Client 11.0");
 	config.setValue("Database", "Server", "172.17.1.43");
@@ -29,6 +31,8 @@ Processor::Processor() {
 	key_front_name = config.getValueString("Application", "KeyFrontName");
 	key_back_name = config.getValueString("Application", "KeyBackName");
 	file_path = config.getValueString("Application", "FilePath");
+	CutString(config.getValueString("Application", "UnderlyingIndex"));
+	CutString(config.getValueString("Application", "UnderlyingStock"));
 	db_driver = config.getValueString("Database", "Driver");
 	db_server = GetIpByName(config.getValueString("Database", "Server"));
 	db_database = config.getValueString("Database", "Database");
@@ -189,14 +193,14 @@ int Processor::InsertLogs(string app, int res, string comment, string db) {
 //| Check Symbol Function                                            |
 //+------------------------------------------------------------------+
 void Processor::CheckSymbolByDB(vector<string> input, bool check) {
-	int count = 0;
+	int done = 0;
 	int non_y = 0;
 	int non_res = 0;
 	int non_req = 0;
 	for (int i = 0; i < input.size(); i++) {
 		for (int j = 0; j < m_all_file.size(); j++) {
 			if (input[i] == m_all_file[j].symbol && m_all_file[j].msg_type == "X") {
-				count++;
+				done++;
 				break;
 			}
 			else if (input[i] == m_all_file[j].symbol && m_all_file[j].msg_type == "Y") {
@@ -208,14 +212,22 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 				break;
 			}
 			else if (j + 1 == m_all_file.size()) {
-				non_req++;
+				for (int k = 0; k < ignore_sumbol.size(); k++)
+					if (ignore_sumbol[k] == input[i]) {
+						done++;
+						break;
+					}
+					else if (k + 1 == ignore_sumbol.size()) {
+						non_req++;
+						LOGW << "(nonReq) symbol: " << input[i];
+					}
 			}
 		}
 	}
 
 	// Insert log to database
 	string log = "", db;
-	LOGI << "Done: " << count << ", Y: " << non_y << ", nonRes: " << non_res << ", nonReq: " << non_req;
+	LOGI << "Done: " << done << ", Y: " << non_y << ", nonRes: " << non_res << ", nonReq: " << non_req;
 
 	if (check) {
 		db = "acc_info";
@@ -224,18 +236,18 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 		db = "acc_info_stock";
 	}
 
-	if (input.size() == count + non_res && input.size()) {
-		LOGI << db << ": " << count + non_res << "/" << input.size();
-		log += "Request symbol complete (" + to_string(count + non_res) + "/" + to_string(input.size()) + ")";
-		InsertLogs(db_logname + " #" + to_string(run_time), 1, log, db);
+	if (input.size() == done + non_res && input.size()) {
+		LOGI << db << ": " << done + non_res << "/" << input.size();
+		log += "Request symbol complete (" + to_string(done + non_res) + "/" + to_string(input.size()) + ")";
+		InsertLogs(db_logname + "#" + to_string(run_time), 1, log, db);
 	}
 	else {
 		if (non_y > 0) {
 			log += "File .in have 35=Y (" + to_string(non_y) + ")";
 		}
-		LOGI << db << ": " << count + non_res << "/" << input.size();
-		log += "Request symbol fail (" + to_string(count + non_res) + "/" + to_string(input.size()) + ")";
-		InsertLogs(db_logname + " #" + to_string(run_time), 0, log, db);
+		LOGI << db << ": " << done + non_res << "/" << input.size();
+		log += "Request symbol fail (" + to_string(done + non_res) + "/" + to_string(input.size()) + ")";
+		InsertLogs(db_logname + "#" + to_string(run_time), 0, log, db);
 	}
 }
 int Processor::CheckSymbol() {
@@ -463,7 +475,7 @@ int Processor::SetFrontBackName() {
 			strcpy(tmp, path.c_str());
 			struct stat fileInfo;
 			if (stat(tmp, &fileInfo) != 0) {  // Use stat( ) to get the info
-				LOGE<< "Error: " << strerror(errno);
+				LOGE << "Error: " << strerror(errno);
 				return 1;
 			}
 			// Compare last time of file
@@ -492,5 +504,21 @@ int Processor::SetFrontBackName() {
 	int index_back = FindField(real_path, cstr_back_name);
 	writeConfig(".\\CheckSubscribeSymbol.ini", "FrontName", real_path.substr(index_front, index_back - index_front - 1));
 	writeConfig(".\\CheckSubscribeSymbol.ini", "BackName", real_path.substr(index_back, real_path.size()));
+	return 0;
+}
+int Processor::CutString(string input) {
+	string tmp = "";
+	for (int i = 0; i < input.length(); i++) {
+		if (input[i] == ',') {
+			ignore_sumbol.push_back(tmp);
+			tmp = "";
+		}
+		if ((input[i] == ',' && input[i + 1] == ' '))
+			i++;
+		else if (input[i] == ' ' && input[i - 1] == ',')
+			i++;
+		else if (input[i] != ' ' && input[i] != ',')
+			tmp += input[i];
+	}
 	return 0;
 }

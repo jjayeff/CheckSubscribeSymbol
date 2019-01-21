@@ -29,6 +29,7 @@
 #include <direct.h>
 #define GetCurrentDir _getcwd
 
+#include <set>
 #include <cmath> 
 #include <map>
 #include <iomanip>
