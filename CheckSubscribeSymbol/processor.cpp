@@ -441,7 +441,7 @@ void Processor::writeConfig(LPCTSTR path, LPCTSTR key, string value) {
 int Processor::SetFrontBackName() {
 	string path = file_path;
 	string real_path = path;
-	string max = "";
+	double max = -999999;
 
 	char *cstr_front_name = new char[key_front_name.length()];
 	strcpy(cstr_front_name, key_front_name.c_str());
@@ -458,15 +458,26 @@ int Processor::SetFrontBackName() {
 			&& processor.FindField(path, cstr_back_name) > -1
 			&& (path.substr(path.size() - 7, 7) != ".ndx.in" && path.substr(path.size() - 8, 8) != ".ndx.out")
 			) {
+			// Get Modified time
+			char *tmp = new char[path.length()];
+			strcpy(tmp, path.c_str());
+			struct stat fileInfo;
+			if (stat(tmp, &fileInfo) != 0) {  // Use stat( ) to get the info
+				LOGE<< "Error: " << strerror(errno);
+				return 1;
+			}
+			// Compare last time of file
+			time_t t = time(0);   // get time now
+			double seconds = difftime(fileInfo.st_mtime, t);
 			if (path.substr(path.size() - 3, 3) == ".in") {
-				if (max < path.substr(index_back + key_back_name.length() + 1, path.size() - index_back - 7)) {
-					max = path.substr(index_back + key_back_name.length() + 1, path.size() - index_back - 7);
+				if (max < seconds) {
+					max = seconds;
 					real_path = path.substr(0, path.size() - 3);
 				}
 			}
 			else
-				if (path.substr(index_back + key_back_name.length() + 1, path.size() - index_back - 8) > max) {
-					max = path.substr(index_back + key_back_name.length() + 1, path.size() - index_back - 8);
+				if (max < seconds) {
+					max = seconds;
 					real_path = path.substr(0, path.size() - 4);
 				}
 		}

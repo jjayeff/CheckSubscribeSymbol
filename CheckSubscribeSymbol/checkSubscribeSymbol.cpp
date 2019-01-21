@@ -1,14 +1,11 @@
-// autodelete.cpp : Defines the entry point for the console application.
-//
-
 #include "stdafx.h"
 #include "processor.h"
 
 Processor processor;
 
 int CheckSubscribeSymbol(int time) {
+	// Run Program;
 	processor.run_time = time;
- 	// Run Program;
 	if (processor.Run())
 		return 1;
 
