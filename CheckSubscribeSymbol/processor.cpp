@@ -18,6 +18,8 @@ Processor::Processor() {
 	config.setValue("Application", "KeyFrontName", "D0118__FIX__MD1");
 	config.setValue("Application", "KeyBackName", "SET");
 	config.setValue("Application", "FilePath", appPath);
+	config.setValue("Application", "ChangePath", appPath);
+	config.setValue("Application", "BackUpChangePath", appPath);
 	config.setValue("Application", "UnderlyingIndex", "BANK, COMM, ICT, ENERG, FOOD, SET50, SET, AGRO, CONSUMP, FINCIAL, INDUS, PROPCON, RESOURC, SERVICE, TECH, AGRI, CONMAT, PETRO, ETRON, MEDIA, FIN, HELTH, TOURISM, HOME, INSUR, MINE, PKG, PERSON, PROF, PROP, PAPER, FASHION, TRANS, AUTO, IMM, PF REIT, STEEL, SET100, SET100, SETHD, sSET, CONS, SETCLMV, SETTHSI,");
 	config.setValue("Application", "UnderlyingStock", "BDMS, ADVANC, AMATA, AP, AOT, TOP, BCH, BANPU, BAY, BBL, BH, BJC, BCP, BLAND, MINT, THCOM, CENTEL, CPF, CPN, CK, TCAP, HMPRO, ITD, IRPC, JAS, KKP, KTB, KBANK, DTAC, CPALL, LH, LPN, MAJOR, PTTEP, PTT, QH, ROBINS, RATCH, SCB, SCC, STA, SIRI, SPALI, STEC, THAI, TMB, TPIPL, TVO, TTA, TRUE, BLA, IVL, BTS, INTUCH, PTTGC, AAV, USD, BRENT, GOLD10, GOLD50, SILER, BB3, TGB5, S50IF_CONVL, TU, BA, CBG, HANA, SAMART, TTCL, EARTH, VGI, CKP, ICHI, SAWAD, BEM, RSS3, RSS3D, PSH, EPG, PLANB, GLOW, STPI, TTW, GPSC, DELTA, UNIQ, S, EGCO, KCE, KTC, TASCO, GLOBAL, GUNKUL, SPCG, WHA, BEAUTY, CHG, PTG, GOLD-D, SUPER, ESSO, SGP, COM7, JWD, GFPT, ORI, IFEC, TKN, SPRC, PSL, RS, BCPG, BIG, BPP, THANI, UV, VIBHA, WORK, TPIPP, WHAUP, GGC, JMART, ANAN, EA, MONO, MC, GOLD-O, GOLD, SILVER,");
 
@@ -31,6 +33,8 @@ Processor::Processor() {
 	key_front_name = config.getValueString("Application", "KeyFrontName");
 	key_back_name = config.getValueString("Application", "KeyBackName");
 	file_path = config.getValueString("Application", "FilePath");
+	change_path = config.getValueString("Application", "ChangePath");
+	backup_change_path = config.getValueString("Application", "BackUpChangePath");
 	CutString(config.getValueString("Application", "UnderlyingIndex"));
 	CutString(config.getValueString("Application", "UnderlyingStock"));
 	db_driver = config.getValueString("Database", "Driver");
@@ -197,6 +201,7 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 	int non_y = 0;
 	int non_res = 0;
 	int non_req = 0;
+	int ignore = 0;
 	for (int i = 0; i < input.size(); i++) {
 		for (int j = 0; j < m_all_file.size(); j++) {
 			if (input[i] == m_all_file[j].symbol && m_all_file[j].msg_type == "X") {
@@ -214,7 +219,7 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 			else if (j + 1 == m_all_file.size()) {
 				for (int k = 0; k < ignore_sumbol.size(); k++)
 					if (ignore_sumbol[k] == input[i]) {
-						done++;
+						ignore++;
 						break;
 					}
 					else if (k + 1 == ignore_sumbol.size()) {
@@ -227,7 +232,7 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 
 	// Insert log to database
 	string log = "", db;
-	LOGI << "Done: " << done << ", Y: " << non_y << ", nonRes: " << non_res << ", nonReq: " << non_req;
+	LOGI << "Done: " << done << ", nonRes: " << non_res << ", ignore: " << ignore << ", Y: " << non_y << ", nonReq: " << non_req;
 
 	if (check) {
 		db = "acc_info";
@@ -236,17 +241,17 @@ void Processor::CheckSymbolByDB(vector<string> input, bool check) {
 		db = "acc_info_stock";
 	}
 
-	if (input.size() == done + non_res && input.size()) {
-		LOGI << db << ": " << done + non_res << "/" << input.size();
-		log += "Request symbol complete (" + to_string(done + non_res) + "/" + to_string(input.size()) + ")";
+	if (input.size() == done + non_res + ignore && input.size()) {
+		LOGI << db << ": " << done + non_res + ignore << "/" << input.size();
+		log += "Request symbol complete (" + to_string(done + non_res + ignore) + "/" + to_string(input.size()) + ")";
 		InsertLogs(db_logname + "#" + to_string(run_time), 1, log, db);
 	}
 	else {
 		if (non_y > 0) {
 			log += "File .in have 35=Y (" + to_string(non_y) + ")";
 		}
-		LOGI << db << ": " << done + non_res << "/" << input.size();
-		log += "Request symbol fail (" + to_string(done + non_res) + "/" + to_string(input.size()) + ")";
+		LOGI << db << ": " << done + non_res + ignore << "/" << input.size();
+		log += "Request symbol fail (" + to_string(done + non_res + ignore) + "/" + to_string(input.size()) + ")";
 		InsertLogs(db_logname + "#" + to_string(run_time), 0, log, db);
 	}
 }
@@ -299,15 +304,19 @@ int Processor::CheckSymbol() {
 			}
 		}
 
+	ofstream mywrite("CheckSubscribeSymbolYCase.txt");
 	// Set count of X and Y and not Response
 	for (int i = 0; i < m_all_file.size(); i++)
 		if (m_all_file[i].msg_type == "X")
 			msg_type_x++;
-		else if (m_all_file[i].msg_type == "Y")
+		else if (m_all_file[i].msg_type == "Y") {
 			msg_type_y++;
+			mywrite << m_all_file[i].symbol << ",";
+			mywrite << m_all_file[i].md_req_id;
+			mywrite << "\n";
+		}
 		else if (m_all_file[i].msg_type == "V")
 			msg_type_v++;
-
 
 	// 
 	LOGI << "X: " << msg_type_x << ", Y: " << msg_type_y << ", Not Response: " << msg_type_v;
@@ -326,10 +335,109 @@ int Processor::CheckSymbol() {
 //+------------------------------------------------------------------+
 //| Change TradeSeqNoSeri                                            |
 //+------------------------------------------------------------------+
+int Processor::WriteFileTradeSeries() {
+	// Write file tradeSeries.txt
+	ofstream mywrite(change_path + "tradeSeries.txt");
+	for (int i = 0; i < write_file_change.size(); i++) {
+		for (int j = 0; j < m_change_file.size(); j++) {
+			string y_case = m_change_file[j].symbol;
+			char *cstr = new char[y_case.length()];
+			strcpy(cstr, y_case.c_str());
+			if (FindField(write_file_change[i], cstr) > -1) {
+				int q = 0; int r = 0; int o = 0;
+				for (int k = 0; k < write_file_change[i].length(); k++) {
+					if (write_file_change[i][k] == ',')
+						q++;
+					if (q == 1) {
+						r = k;
+					}
+					else if (q == 2) {
+						o = k;
+					}
+				}
+				LOGI << "(Change): " << y_case << " " << write_file_change[i].substr(r + 2, o - r - 1) << " -> " << m_change_file[j].trade_seq_so_series;
+				m_change_file[j].status = true;
+				mywrite << write_file_change[i].substr(0, r + 2) + m_change_file[j].trade_seq_so_series + write_file_change[i].substr(o + 1, write_file_change[i].size());
+				mywrite << "\n";
+				break;
+			}
+			else if (j + 1 == m_change_file.size()) {
+				mywrite << write_file_change[i];
+				mywrite << "\n";
+			}
+		}
+	}
+
+	LOGI << "Write file : tradeSeries.txt Success!!";
+	return 0;
+}
+int Processor::ReadFileTradeSeries() {
+	time_t t = time(0);   // get time now
+	tm* now = localtime(&t);
+	string date = to_string(now->tm_year + 1900) + to_string(now->tm_mon + 1) + to_string(now->tm_mday) + to_string(now->tm_hour) + to_string(now->tm_min) + to_string(now->tm_sec);
+	// Read file tradeSeries.txt
+	ifstream myfile(change_path + "tradeSeries.txt");
+	ofstream mywrite(backup_change_path + "tradeSeries-" + date + ".txt");
+	string line;
+	size_t   p = 0;
+	myfile.seekg(p);
+	if (myfile.is_open()) {
+		while (myfile.eof() == false) {
+			getline(myfile, line);
+			if (line != "") {
+				write_file_change.push_back(line);
+				mywrite << line;
+				mywrite << "\n";
+			}
+		}
+		p = myfile.tellg();  //*2
+		LOGI << "Read file : tradeSeries.txt Success!!";
+		return 0;
+	}
+	else {
+		LOGE << "Can't read file : tradeSeries.txt";
+		return 1;
+	}
+}
+int Processor::ReadFileXCase() {
+	// Get Value from CheckSubscribeSymbolYCase
+	ifstream readYCase("CheckSubscribeSymbolYCase.txt");
+	string line;
+	size_t   p = 0;
+	readYCase.seekg(p);
+	if (readYCase.is_open()) {
+		while (readYCase.eof() == false) {
+			getline(readYCase, line);
+			int index = FindField(line, ",");
+			SAll tmp;
+			if (line != "") {
+				tmp.md_req_id = line.substr(FindField(line, ",") + 1, line.size());
+				tmp.security_res_id = line.substr(FindField(line, ",") + 1, line.size());
+				tmp.msg_type = "Y";
+				tmp.symbol = line.substr(0, FindField(line, ","));
+				m_all_file.push_back(tmp);
+			}
+		}
+		p = readYCase.tellg();  //*2
+		LOGI << "Read File Y CheckSubscribeSymbolYCase.txt Success!!";
+		LOGI << "(Y) = " + m_all_file.size();
+		if (m_all_file.size() > 0)
+			return 0;
+		else
+			return 1;
+	}
+	else {
+		LOGE << "Can't read File Y case : CheckSubscribeSymbolYCase.txt";
+		return 1;
+	}
+}
 int Processor::ChangeTradeSeqNoSeri(string input) {
+	if (ReadFileXCase())
+		return 1;
+
+	// Get tradeSeqSoSeries
 	for (int i = 0; i < m_all_file.size(); i++)
 		if (m_all_file[i].msg_type == "Y") {
-			std::cout << endl << m_all_file[i].symbol << " | ";
 			string y_case = "55=" + m_all_file[i].symbol;
 			char *cstr = new char[y_case.length()];
 			strcpy(cstr, y_case.c_str());
@@ -351,48 +459,20 @@ int Processor::ChangeTradeSeqNoSeri(string input) {
 			}
 		}
 
-	vector<string> iro;
+	if (ReadFileTradeSeries())
+		return 1;
 
-	ifstream myfile("example.txt");
-	string line;
-	size_t   p = 0;
-	myfile.seekg(p);
-	if (myfile.is_open()) {
-		while (myfile.eof() == false) {
-			getline(myfile, line);
-			iro.push_back(line);
-			p = myfile.tellg();  //*2
-		}
-	}
-	ofstream mywrite("example.txt");
+	if (WriteFileTradeSeries())
+		return 1;
 
-	for (int i = 0; i < iro.size(); i++) {
-		string y_case = m_change_file[0].symbol;
-		char *cstr = new char[y_case.length()];
-		strcpy(cstr, y_case.c_str());
-		if (FindField(iro[i], cstr) > -1) {
-			int q = 0; int r = 0; int o = 0;
-			for (int j = 0; j < iro[i].length(); j++) {
-				if (j + 1 == iro[i].length())
-					std::cout << endl;
-				if (iro[i][j] == ',')
-					q++;
-				if (q == 1) {
-					r = j;
-				}
-				else if (q == 2) {
-					o = j;
-				}
-			}
-			std::cout << iro[i].substr(0, r + 2) + m_change_file[0].trade_seq_so_series + iro[i].substr(o + 1, iro[i].size()) << endl;
-			mywrite << iro[i].substr(0, r + 2) + m_change_file[0].trade_seq_so_series + iro[i].substr(o + 1, iro[i].size());
+	ofstream mywrite("CheckSubscribeSymbolYCase.txt");
+	for (int i = 0; i < m_change_file.size(); i++)
+		if (!m_change_file[i].status) {
+			LOGW << "(Non-Change): " << m_change_file[i].symbol;
+			mywrite << m_all_file[i].symbol << ",";
+			mywrite << m_all_file[i].md_req_id;
 			mywrite << "\n";
 		}
-		else {
-			mywrite << iro[i];
-			mywrite << "\n";
-		}
-	}
 
 	return 0;
 }

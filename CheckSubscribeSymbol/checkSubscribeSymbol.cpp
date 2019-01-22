@@ -22,7 +22,7 @@ int CheckSubscribeSymbol(int time) {
 	// Connecting Database
 	if (processor.ConnectDataBase())
 		return 1;
-
+	
 	// Get symbol from database
 	char cmd_temp[1024] = { 0 };
 	// Get symbol from database acc_info
@@ -36,13 +36,18 @@ int CheckSubscribeSymbol(int time) {
 		return 1;
 
 	processor.CheckSymbol();
-
 	return 0;
 }
 
 int ChangeSubscribeSymbol(int time) {
-	//CheckSubscribeSymbol(time);
-	//processor.ChangeTradeSeqNoSeri();
+	// Run Program;
+	processor.run_time = time;
+	if (processor.Run())
+		return 1;
+
+	string file = processor.file_path + processor.front_name + "-" + processor.back_name + ".in";
+
+	processor.ChangeTradeSeqNoSeri(file);
 
 	return 0;
 }
@@ -54,11 +59,11 @@ int _tmain(int argc, _TCHAR* argv[])
 		return 1;
 	}
 
-	switch (stoi(argv[1])) {
-	case 1:
+	if (stoi(argv[1]) == 1) {
 		if (CheckSubscribeSymbol(stoi(argv[2])))
 			return 1;
-	case 2:
+	}
+	else if (stoi(argv[1]) == 2) {
 		if (ChangeSubscribeSymbol(stoi(argv[2])))
 			return 1;
 	}

@@ -32,6 +32,7 @@ public:
 	{
 		string				trade_seq_so_series = "";		// TradeSeqNoSeries
 		string				symbol = "";					// Symbol
+		bool				status = false;
 	};
 
 	vector<SOut>		m_out_file;
@@ -39,6 +40,7 @@ public:
 	vector<SAll>		m_all_file;
 	vector<SChange>		m_change_file;
 	vector<string>		ignore_sumbol;
+	vector<string>		write_file_change;
 	vector<string>		db_symbol_acc;
 	vector<string>		db_symbol_acc_stock;
 	int					msg_type_x = 0;
@@ -49,6 +51,8 @@ public:
 	string				key_front_name = "";
 	string				key_back_name = "";
 	string				file_path = "";
+	string				change_path = "";
+	string				backup_change_path = "";
 	string				trading_date = "";
 	string				db_driver = "";
 	string				db_server = "";
@@ -75,6 +79,9 @@ public:
 	void				CheckSymbolByDB(vector<string> input, bool check = false);
 	int					CheckSymbol();
 	int					SetFrontBackName();
+	int					WriteFileTradeSeries();
+	int					ReadFileTradeSeries();
+	int					ReadFileXCase();
 	int					ChangeTradeSeqNoSeri(string input);
 	int					CutString(string input);
 
