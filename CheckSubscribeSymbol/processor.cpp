@@ -11,8 +11,6 @@ Processor::Processor() {
 
 	string appPath = config.getAbsolutePath() + "logs";
 
-	config.setValue("Application", "FrontName", "D0118__FIX__MD1");
-	config.setValue("Application", "BackName", "SET_1901140211232301");
 	config.setValue("Application", "TradingDate", "2019-01-14 00:00:00.000");
 	config.setValue("Application", "LogPath", appPath);
 	config.setValue("Application", "KeyFrontName", "D0118__FIX__MD1");
@@ -58,8 +56,6 @@ int Processor::Run() {
 	if (SetFrontBackName())
 		return 1;
 	else {
-		front_name = config.getValueString("Application", "FrontName");
-		back_name = config.getValueString("Application", "BackName");
 		time_t t = time(0);   // get time now
 		tm* now = localtime(&t);
 		string date = to_string(now->tm_year + 1900) + "-" + to_string(now->tm_mon + 1) + "-" + to_string(now->tm_mday) + " 00:00:00";
@@ -77,7 +73,6 @@ int Processor::ReadFile(string input) {
 	size_t   p = 0;
 	myfile.seekg(p);
 	if (myfile.is_open()) {
-		int weqwewqeq = 0;
 		while (myfile.eof() == false) {
 			getline(myfile, line);
 			if (!input.compare(input.size() - 3, 3, ".in")) {
@@ -560,7 +555,7 @@ int Processor::SetFrontBackName() {
 			}
 			// Compare last time of file
 			time_t t = time(0);   // get time now
-			double seconds = difftime(fileInfo.st_mtime, t);
+			double seconds = difftime(fileInfo.st_ctime, t);
 			if (path.substr(path.size() - 3, 3) == ".in") {
 				if (max < seconds) {
 					max = seconds;
@@ -582,8 +577,8 @@ int Processor::SetFrontBackName() {
 
 	int index_front = FindField(real_path, cstr_front_name);
 	int index_back = FindField(real_path, cstr_back_name);
-	writeConfig(".\\CheckSubscribeSymbol.ini", "FrontName", real_path.substr(index_front, index_back - index_front - 1));
-	writeConfig(".\\CheckSubscribeSymbol.ini", "BackName", real_path.substr(index_back, real_path.size()));
+	front_name = real_path.substr(index_front, index_back - index_front - 1);
+	back_name = real_path.substr(index_back, real_path.size());
 	return 0;
 }
 int Processor::CutString(string input) {
@@ -597,7 +592,7 @@ int Processor::CutString(string input) {
 			i++;
 		else if (input[i] == ' ' && input[i - 1] == ',')
 			i++;
-		else if (input[i] != ' ' && input[i] != ',')
+		else if (input[i] != ',')
 			tmp += input[i];
 	}
 	return 0;
